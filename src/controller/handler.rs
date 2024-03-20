@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 use crate::controller::DialCtxActions;
 use crate::dialogues::MessageId;
@@ -10,6 +11,7 @@ use super::{BotAdapter, CtxResult, DialInteraction};
 pub type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub type HandlerResult = AnyResult<()>;
 
+#[instrument(skip(context, bot, interaction))]
 pub async fn handle_interaction<T: DialCtxActions, B: BotAdapter>(
     user_id: &u64,
     bot: &Arc<B>,
@@ -46,21 +48,17 @@ pub async fn handle_interaction<T: DialCtxActions, B: BotAdapter>(
     Ok(())
 }
 
+#[instrument(skip(ctx_results, bot), fields(results_len=ctx_results.len()))]
 pub async fn process_ctx_results<B: BotAdapter>(
     user_id: u64,
     ctx_results: Vec<CtxResult>,
     bot: &Arc<B>,
 ) -> AnyResult<Vec<MessageId>> {
-    log::debug!(
-        "Results processing ({user_id}): executing {} results...",
-        ctx_results.len()
-    );
-
     let mut sent_msg_ids: Vec<MessageId> = vec![];
     for ctx_result in ctx_results {
         match ctx_result {
             CtxResult::Messages(messages) => {
-                log::debug!(
+                tracing::debug!(
                     "Results processing ({user_id}): sending {} messages",
                     messages.len()
                 );
@@ -71,13 +69,13 @@ pub async fn process_ctx_results<B: BotAdapter>(
                 }
             }
             CtxResult::Buttons(msg, selector) => {
-                log::debug!("Results processing ({user_id}): sending keyboard");
+                tracing::debug!("Results processing ({user_id}): sending keyboard");
                 bot.send_keyboard(user_id, msg, selector)
                     .await
                     .map(|msg_id| sent_msg_ids.push(msg_id))?;
             }
             CtxResult::RemoveMessages(messages_ids) => {
-                log::debug!(
+                tracing::debug!(
                     "Results processing ({user_id}): removing {} messages",
                     messages_ids.len()
                 );
@@ -85,6 +83,5 @@ pub async fn process_ctx_results<B: BotAdapter>(
             }
         }
     }
-    log::debug!("Results processing ({user_id}): all results processed");
     Ok(sent_msg_ids)
 }

@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use tokio::{sync::RwLock, time::sleep};
+use tracing::instrument;
 
 use crate::controller::handler::process_ctx_results;
 use crate::controller::CtxResult;
@@ -9,6 +10,7 @@ use crate::controller::DialCtxActions;
 
 use super::BotAdapter;
 
+#[instrument(skip(dial_ctx, bot_adapter))]
 pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
     dial_ctx: Arc<RwLock<C>>,
     bot_adapter: Arc<B>,
@@ -52,7 +54,7 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
             .collect::<Vec<&u64>>();
 
         if !keys_to_remove.is_empty() {
-            log::debug!("[ttl controller] Remove {} dialogs", keys_to_remove.len());
+            tracing::debug!("Remove {} dialogs", keys_to_remove.len());
             let mut context_wlock = dial_ctx.write().await;
 
             let result = keys_to_remove
@@ -65,7 +67,7 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
                 .filter_map(|(user_id, controller)| match controller.shutdown() {
                     Ok(result) => Some((user_id, result)),
                     Err(err) => {
-                        log::error!("[ttl controller] Failed dialog shutdown {}", err);
+                        tracing::error!("Failed dialog shutdown {}", err);
                         None
                     }
                 })
@@ -74,8 +76,8 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
 
             for (user_id, ctx_results) in result {
                 if let Err(err) = process_ctx_results(user_id, ctx_results, &bot_adapter).await {
-                    log::error!(
-                        "[ttl controller] Failed results processing for {}: {}",
+                    tracing::error!(
+                        "Failed results processing for {}: {}",
                         user_id,
                         err
                     );
@@ -88,8 +90,8 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
                 )
                     .await
                 {
-                    log::error!(
-                        "[ttl controller] Failed send message for user {}: {}",
+                    tracing::error!(
+                        "Failed send message for user {}: {}",
                         user_id,
                         err
                     )
@@ -97,7 +99,7 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
             }
         }
 
-        log::debug!("[ttl controller] Sleep {} seconds", sleep_time.as_secs());
+        tracing::debug!("Sleep {} seconds", sleep_time.as_secs());
         sleep(sleep_time).await;
     }
 }

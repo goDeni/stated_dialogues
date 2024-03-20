@@ -116,7 +116,7 @@ impl BotAdapter for TeloxideAdapter {
 
         while let Some(res) = set.join_next().await {
             if let Err(err) = res? {
-                log::error!("Failed message deletion: {}", err);
+                tracing::error!("Failed message deletion: {}", err);
             }
         }
 
