@@ -69,8 +69,7 @@ impl DialogueController {
         let (context, results) = process_context_results(Box::new(context), results)?;
         Ok((
             DialogueController {
-                context: context
-                    .with_context(|| "context self destroyed after initialization".to_string())?,
+                context: context.context("context self destroyed after initialization")?,
                 last_usage_time: SystemTime::now(),
             },
             results,
