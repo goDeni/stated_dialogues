@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use tokio::{sync::RwLock, time::sleep};
-use tracing::instrument;
+use tracing::{instrument, Level};
 
 use crate::controller::handler::process_ctx_results;
 use crate::controller::CtxResult;
@@ -10,7 +10,7 @@ use crate::controller::DialCtxActions;
 
 use super::BotAdapter;
 
-#[instrument(skip(dial_ctx, bot_adapter))]
+#[instrument(level = Level::DEBUG, skip(dial_ctx, bot_adapter))]
 pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
     dial_ctx: Arc<RwLock<C>>,
     bot_adapter: Arc<B>,

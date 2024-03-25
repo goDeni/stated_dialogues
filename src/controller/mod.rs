@@ -7,6 +7,7 @@ use std::{future::Future, time::SystemTime};
 
 use crate::dialogues::{self, ButtonPayload, DialContext, MessageId, OutgoingMessage};
 use anyhow::{Context, Result};
+use tracing::{instrument, Level};
 
 type AnyDialContext = dyn DialContext + Sync + Send;
 pub struct DialogueController {
@@ -111,6 +112,7 @@ impl DialogueController {
     }
 }
 
+#[instrument(level = Level::DEBUG, skip_all)]
 fn process_context_results(
     context: Box<AnyDialContext>,
     mut results: Vec<dialogues::CtxResult>,
