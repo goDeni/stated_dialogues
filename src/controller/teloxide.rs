@@ -6,6 +6,7 @@ use teloxide::requests::Requester;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, UserId};
 use teloxide::Bot;
 use tokio::task::JoinSet;
+use tracing::{instrument, Level};
 
 use super::BotAdapter;
 use crate::dialogues::{self, ButtonPayload, MessageFormat, MessageId, OutgoingMessage};
@@ -63,6 +64,7 @@ impl TeloxideAdapter {
 }
 
 impl BotAdapter for TeloxideAdapter {
+    #[instrument(level = Level::DEBUG, skip(self, msg))]
     async fn send_message(&self, user_id: u64, msg: OutgoingMessage) -> Result<MessageId> {
         let send_request = self.bot.send_message(UserId(user_id), msg.text());
         let send_request = match msg.format {
@@ -76,6 +78,7 @@ impl BotAdapter for TeloxideAdapter {
             .with_context(|| format!("Failed message for {user_id} sending"))
     }
 
+    #[instrument(level = Level::DEBUG, skip(self, msg, selector))]
     async fn send_keyboard(
         &self,
         user_id: u64,
@@ -101,6 +104,7 @@ impl BotAdapter for TeloxideAdapter {
             .with_context(|| format!("Failed keyboard for {user_id} sending"))
     }
 
+    #[instrument(level = Level::DEBUG, skip(self))]
     async fn delete_messages(&self, user_id: u64, messages_ids: Vec<MessageId>) -> Result<()> {
         let mut set = JoinSet::new();
         messages_ids
