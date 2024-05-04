@@ -53,6 +53,7 @@ impl From<teloxide::types::CallbackQuery> for dialogues::Select {
     }
 }
 
+#[derive(Clone)]
 pub struct TeloxideAdapter {
     bot: Bot,
 }
