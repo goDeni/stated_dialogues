@@ -21,11 +21,12 @@ pub async fn handle_interaction<T: DialCtxActions, B: BotAdapter>(
     let dial_controller = context.write().await.take_controller(user_id);
 
     let (controller, results) = match dial_controller {
-        Some(controller) => controller.handle(interaction),
+        Some(controller) => controller.handle(interaction).await,
         None => {
-            let (controller, results) = context.read().await.new_controller(*user_id)?;
+            let (controller, results) = context.read().await.new_controller(*user_id).await?;
             controller
                 .handle(interaction)
+                .await
                 .map(|(controller, handle_results)| {
                     (
                         controller,
@@ -40,7 +41,7 @@ pub async fn handle_interaction<T: DialCtxActions, B: BotAdapter>(
         controller.remember_sent_messages(sent_msg_ids);
         context.write().await.put_controller(*user_id, controller);
     } else {
-        let (mut controller, results) = context.read().await.new_controller(*user_id)?;
+        let (mut controller, results) = context.read().await.new_controller(*user_id).await?;
         let sent_msg_ids = process_ctx_results(*user_id, results, bot).await?;
         controller.remember_sent_messages(sent_msg_ids);
         context.write().await.put_controller(*user_id, controller);

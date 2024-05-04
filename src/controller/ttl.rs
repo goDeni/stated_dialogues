@@ -15,6 +15,7 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
     dial_ctx: Arc<RwLock<C>>,
     bot_adapter: Arc<B>,
     max_ttl_seconds: u64,
+    close_msg: Option<String>,
 ) {
     loop {
         let current_time = SystemTime::now();
@@ -57,44 +58,30 @@ pub async fn track_dialog_ttl<B: BotAdapter, C: DialCtxActions>(
             tracing::debug!("Remove {} dialogs", keys_to_remove.len());
             let mut context_wlock = dial_ctx.write().await;
 
-            let result = keys_to_remove
-                .into_iter()
-                .filter_map(|user_id| {
-                    context_wlock
-                        .take_controller(user_id)
-                        .map(|controller| (*user_id, controller))
-                })
-                .filter_map(|(user_id, controller)| match controller.shutdown() {
-                    Ok(result) => Some((user_id, result)),
+            let controllers_iter = keys_to_remove.into_iter().filter_map(|user_id| {
+                context_wlock
+                    .take_controller(user_id)
+                    .map(|controller| (*user_id, controller))
+            });
+
+            let mut result: Vec<(u64, Vec<CtxResult>)> = Vec::new();
+            for (user_id, controller) in controllers_iter {
+                match controller.shutdown().await {
+                    Ok(ctx_result) => result.push((user_id, ctx_result)),
                     Err(err) => {
                         tracing::error!("Failed dialog shutdown {}", err);
-                        None
                     }
-                })
-                .collect::<Vec<(u64, Vec<CtxResult>)>>();
+                }
+            }
             drop(context_wlock);
 
             for (user_id, ctx_results) in result {
                 if let Err(err) = process_ctx_results(user_id, ctx_results, &bot_adapter).await {
-                    tracing::error!(
-                        "Failed results processing for {}: {}",
-                        user_id,
-                        err
-                    );
-                } else if let Err(err) = bot_adapter.send_message(
-                    user_id,
-                    format!(
-                        "Диалог закрыт потому что не использовался {} секунд 🙈\nВведите /start чтобы инициировать новый диалог",
-                        max_ttl_seconds
-                    ).into()
-                )
-                    .await
-                {
-                    tracing::error!(
-                        "Failed send message for user {}: {}",
-                        user_id,
-                        err
-                    )
+                    tracing::error!("Failed results processing for {}: {}", user_id, err);
+                } else if let Some(msg) = close_msg.clone() {
+                    if let Err(err) = bot_adapter.send_message(user_id, msg.into()).await {
+                        tracing::error!("Failed send message for user {}: {}", user_id, err,)
+                    }
                 }
             }
         }

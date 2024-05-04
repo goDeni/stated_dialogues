@@ -1,4 +1,5 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use std::fmt::{Debug, Display};
 
 #[derive(Debug, PartialEq)]
@@ -147,14 +148,15 @@ impl From<&str> for ButtonPayload {
     }
 }
 
+#[async_trait]
 pub trait DialContext {
     //
-    fn init(&mut self) -> Result<Vec<CtxResult>>;
-    fn shutdown(&mut self) -> Result<Vec<CtxResult>>;
+    async fn init(&mut self) -> Result<Vec<CtxResult>>;
+    async fn shutdown(&mut self) -> Result<Vec<CtxResult>>;
     //
-    fn handle_select(&mut self, select: Select) -> Result<Vec<CtxResult>>;
-    fn handle_message(&mut self, message: Message) -> Result<Vec<CtxResult>>;
-    fn handle_command(&mut self, command: Message) -> Result<Vec<CtxResult>>;
+    async fn handle_select(&mut self, select: Select) -> Result<Vec<CtxResult>>;
+    async fn handle_message(&mut self, message: Message) -> Result<Vec<CtxResult>>;
+    async fn handle_command(&mut self, command: Message) -> Result<Vec<CtxResult>>;
     //
     fn remember_sent_messages(&mut self, msg_ids: Vec<MessageId>);
 }

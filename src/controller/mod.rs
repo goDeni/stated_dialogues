@@ -7,6 +7,7 @@ use std::{future::Future, time::SystemTime};
 
 use crate::dialogues::{self, ButtonPayload, DialContext, MessageId, OutgoingMessage};
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use tracing::{instrument, Level};
 
 type AnyDialContext = dyn DialContext + Sync + Send;
@@ -54,20 +55,21 @@ pub enum CtxResult {
     Buttons(OutgoingMessage, Vec<Vec<(ButtonPayload, String)>>),
 }
 
+#[async_trait]
 pub trait DialCtxActions {
-    fn new_controller(&self, user_id: u64) -> Result<(DialogueController, Vec<CtxResult>)>;
+    async fn new_controller(&self, user_id: u64) -> Result<(DialogueController, Vec<CtxResult>)>;
     fn take_controller(&mut self, user_id: &u64) -> Option<DialogueController>;
     fn put_controller(&mut self, user_id: u64, controller: DialogueController);
     fn dialogues_list(&self) -> Vec<(&u64, &DialogueController)>;
 }
 
 impl DialogueController {
-    pub fn create<T>(mut context: T) -> Result<(Self, Vec<CtxResult>)>
+    pub async fn create<T>(mut context: T) -> Result<(Self, Vec<CtxResult>)>
     where
         T: DialContext + Sync + Send + 'static,
     {
-        let results = context.init()?;
-        let (context, results) = process_context_results(Box::new(context), results)?;
+        let results = context.init().await?;
+        let (context, results) = process_context_results(Box::new(context), results).await?;
         Ok((
             DialogueController {
                 context: context.context("context self destroyed after initialization")?,
@@ -81,17 +83,17 @@ impl DialogueController {
         &self.last_usage_time
     }
 
-    pub fn handle(
+    pub async fn handle(
         mut self,
         interaction: DialInteraction,
     ) -> Result<(Option<Self>, Vec<CtxResult>)> {
         let results = match interaction {
-            DialInteraction::Select(select) => self.context.handle_select(select),
-            DialInteraction::Message(message) => self.context.handle_message(message),
-            DialInteraction::Command(command) => self.context.handle_command(command),
+            DialInteraction::Select(select) => self.context.handle_select(select).await,
+            DialInteraction::Message(message) => self.context.handle_message(message).await,
+            DialInteraction::Command(command) => self.context.handle_command(command).await,
         }?;
 
-        let (context, results) = process_context_results(self.context, results)?;
+        let (context, results) = process_context_results(self.context, results).await?;
 
         Ok((
             context.map(|ctx| DialogueController {
@@ -102,9 +104,11 @@ impl DialogueController {
         ))
     }
 
-    pub fn shutdown(mut self) -> Result<Vec<CtxResult>> {
-        let results = self.context.shutdown()?;
-        process_context_results(self.context, results).map(|(_, ctx_results)| ctx_results)
+    pub async fn shutdown(mut self) -> Result<Vec<CtxResult>> {
+        let results = self.context.shutdown().await?;
+        process_context_results(self.context, results)
+            .await
+            .map(|(_, ctx_results)| ctx_results)
     }
 
     pub fn remember_sent_messages(&mut self, msg_ids: Vec<MessageId>) {
@@ -113,7 +117,7 @@ impl DialogueController {
 }
 
 #[instrument(level = Level::DEBUG, skip_all)]
-fn process_context_results(
+async fn process_context_results(
     context: Box<AnyDialContext>,
     mut results: Vec<dialogues::CtxResult>,
 ) -> Result<(Option<Box<AnyDialContext>>, Vec<CtxResult>)> {
@@ -125,14 +129,14 @@ fn process_context_results(
             match ctx_result {
                 dialogues::CtxResult::NewCtx(mut new_ctx) => {
                     if let Some(ref mut old_ctx) = context {
-                        new_results.extend(old_ctx.shutdown()?);
+                        new_results.extend(old_ctx.shutdown().await?);
                     }
-                    new_results.extend(new_ctx.init()?);
+                    new_results.extend(new_ctx.init().await?);
                     context = Some(new_ctx);
                 }
                 dialogues::CtxResult::CloseCtx => {
                     if let Some(ref mut old_ctx) = context {
-                        new_results.extend(old_ctx.shutdown()?);
+                        new_results.extend(old_ctx.shutdown().await?);
                     }
                     context = None
                 }
