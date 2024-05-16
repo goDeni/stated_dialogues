@@ -1,14 +1,15 @@
 [package]
 name = "stated_dialogues"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
 tracing = "0.1"
-teloxide = { version = "0.12.2", features = ["macros"], optional = true }
+teloxide = { version = "0.12.2", default-features = false, features = ["macros", "auto-send"], optional = true }
 tokio = { version = "1.35.1", features = ["macros", "sync", "time"] }
 async-trait = "0.1.80"
 
 [features]
-teloxide-adapter = ["dep:teloxide"]
+teloxide-adapter-rustls = ["teloxide/rustls"]
+teloxide-adapter-native-tls = ["teloxide/native-tls"]

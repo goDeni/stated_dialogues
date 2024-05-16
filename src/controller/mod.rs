@@ -1,5 +1,8 @@
 pub mod handler;
-#[cfg(feature = "teloxide-adapter")]
+#[cfg(any(
+    feature = "teloxide-adapter-rustls",
+    feature = "teloxide-adapter-native-tls"
+))]
 pub mod teloxide;
 pub mod ttl;
 
