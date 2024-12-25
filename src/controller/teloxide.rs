@@ -3,17 +3,25 @@ use std::future::IntoFuture;
 use anyhow::Context;
 use teloxide::payloads::SendMessageSetters;
 use teloxide::requests::Requester;
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, UserId};
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ParseMode, UserId};
 use teloxide::Bot;
 use tokio::task::JoinSet;
 use tracing::{instrument, Level};
 
 use super::BotAdapter;
-use crate::dialogues::{self, ButtonPayload, MessageFormat, MessageId, OutgoingMessage};
+use crate::dialogues::{
+    self, ButtonPayload, MessageFormat, MessageId, OutgoingDocument, OutgoingMessage,
+};
 use anyhow::Result;
 
 pub type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub type HandlerResult = AnyResult<()>;
+
+impl From<OutgoingDocument> for teloxide::types::InputFile {
+    fn from(val: OutgoingDocument) -> Self {
+        InputFile::memory(val.data).file_name(val.name)
+    }
+}
 
 impl From<teloxide::types::MessageId> for dialogues::MessageId {
     fn from(val: teloxide::types::MessageId) -> Self {
@@ -38,7 +46,7 @@ impl From<teloxide::types::Message> for dialogues::Message {
         dialogues::Message::new(
             val.id.into(),
             val.text().map(|t| t.to_string()),
-            val.from().map(|user| user.id.into()),
+            val.from.map(|user| user.id.into()),
         )
     }
 }
@@ -46,7 +54,7 @@ impl From<teloxide::types::Message> for dialogues::Message {
 impl From<teloxide::types::CallbackQuery> for dialogues::Select {
     fn from(val: teloxide::types::CallbackQuery) -> Self {
         dialogues::Select::new(
-            val.message.map(|msg| msg.id.into()),
+            val.message.map(|msg| msg.id().into()),
             val.data,
             val.from.id.into(),
         )
@@ -73,6 +81,15 @@ impl BotAdapter for TeloxideAdapter {
             MessageFormat::Text => send_request,
         };
 
+        send_request
+            .await
+            .map(|msg| msg.id.into())
+            .with_context(|| format!("Failed message for {user_id} sending"))
+    }
+
+    #[instrument(level = Level::DEBUG, skip(self, document))]
+    async fn send_document(&self, user_id: u64, document: OutgoingDocument) -> Result<MessageId> {
+        let send_request = self.bot.send_document(UserId(user_id), document.into());
         send_request
             .await
             .map(|msg| msg.id.into())

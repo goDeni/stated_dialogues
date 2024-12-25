@@ -68,6 +68,13 @@ pub async fn process_ctx_results<B: BotAdapter>(
                         .map(|msg_id| sent_msg_ids.push(msg_id))?;
                 }
             }
+            CtxResult::Document(document) => {
+                let msg_span = debug_span!("document");
+                let _enter = msg_span.enter();
+                bot.send_document(user_id, document)
+                    .await
+                    .map(|msg_id| sent_msg_ids.push(msg_id))?;
+            }
             CtxResult::Buttons(msg, selector) => {
                 let msg_span = debug_span!("keyboard");
                 let _enter = msg_span.enter();

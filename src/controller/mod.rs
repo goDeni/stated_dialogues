@@ -8,7 +8,9 @@ pub mod ttl;
 
 use std::{future::Future, time::SystemTime};
 
-use crate::dialogues::{self, ButtonPayload, DialContext, MessageId, OutgoingMessage};
+use crate::dialogues::{
+    self, ButtonPayload, DialContext, MessageId, OutgoingDocument, OutgoingMessage,
+};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tracing::{instrument, Level};
@@ -24,6 +26,11 @@ pub trait BotAdapter {
         &self,
         user_id: u64,
         msg: OutgoingMessage,
+    ) -> impl Future<Output = Result<MessageId>> + Send;
+    fn send_document(
+        &self,
+        user_id: u64,
+        msg: OutgoingDocument,
     ) -> impl Future<Output = Result<MessageId>> + Send;
     fn send_keyboard(
         &self,
@@ -54,6 +61,7 @@ pub enum DialInteraction {
 
 pub enum CtxResult {
     Messages(Vec<OutgoingMessage>),
+    Document(OutgoingDocument),
     RemoveMessages(Vec<MessageId>),
     Buttons(OutgoingMessage, Vec<Vec<(ButtonPayload, String)>>),
 }
@@ -164,6 +172,7 @@ async fn process_context_results(
             .into_iter()
             .filter_map(|result| match result {
                 dialogues::CtxResult::Messages(messages) => Some(CtxResult::Messages(messages)),
+                dialogues::CtxResult::Document(documents) => Some(CtxResult::Document(documents)),
                 dialogues::CtxResult::RemoveMessages(msg_ids) => {
                     Some(CtxResult::RemoveMessages(msg_ids))
                 }
