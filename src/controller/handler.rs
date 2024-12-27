@@ -11,6 +11,14 @@ use super::{BotAdapter, CtxResult, DialInteraction};
 pub type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub type HandlerResult = AnyResult<()>;
 
+pub async fn dialog_expect_file<T: DialCtxActions>(user_id: &u64, context: &RwLock<T>) -> bool {
+    context
+        .read()
+        .await
+        .get_controller(user_id)
+        .map_or(false, |controller| controller.file_expected())
+}
+
 #[instrument(level = Level::DEBUG, skip(context, bot, interaction))]
 pub async fn handle_interaction<T: DialCtxActions, B: BotAdapter>(
     user_id: &u64,

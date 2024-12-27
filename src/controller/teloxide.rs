@@ -47,6 +47,18 @@ impl From<teloxide::types::Message> for dialogues::Message {
             val.id.into(),
             val.text().map(|t| t.to_string()),
             val.from.map(|user| user.id.into()),
+            None,
+        )
+    }
+}
+impl From<(teloxide::types::Message, std::path::PathBuf)> for dialogues::Message {
+    fn from(val: (teloxide::types::Message, std::path::PathBuf)) -> Self {
+        let (msg, path) = val;
+        dialogues::Message::new(
+            msg.id.into(),
+            msg.text().map(|t| t.to_string()),
+            msg.from.map(|user| user.id.into()),
+            Some(path),
         )
     }
 }

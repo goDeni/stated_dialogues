@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use std::fmt::{Debug, Display};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub enum MessageFormat {
@@ -107,15 +108,32 @@ pub struct Message {
     pub id: MessageId,
     pub text: Option<String>,
     pub user_id: Option<UserId>,
+    pub document_file: Option<PathBuf>,
 }
 
 impl Message {
-    pub fn new(id: MessageId, text: Option<String>, user_id: Option<UserId>) -> Self {
-        Message { id, text, user_id }
+    pub fn new(
+        id: MessageId,
+        text: Option<String>,
+        user_id: Option<UserId>,
+        document_file: Option<PathBuf>,
+    ) -> Self {
+        Message {
+            id,
+            text,
+            user_id,
+            document_file,
+        }
     }
     pub fn text(&self) -> Option<&str> {
         match &self.text {
             Some(text) => Some(text),
+            _ => None,
+        }
+    }
+    pub fn document_file(&self) -> Option<&Path> {
+        match &self.document_file {
+            Some(text) => Some(text.as_path()),
             _ => None,
         }
     }
@@ -167,6 +185,8 @@ pub trait DialContext {
     //
     async fn init(&mut self) -> Result<Vec<CtxResult>>;
     async fn shutdown(&mut self) -> Result<Vec<CtxResult>>;
+    //
+    fn file_expected(&self) -> bool;
     //
     async fn handle_select(&mut self, select: Select) -> Result<Vec<CtxResult>>;
     async fn handle_message(&mut self, message: Message) -> Result<Vec<CtxResult>>;

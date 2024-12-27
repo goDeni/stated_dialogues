@@ -69,6 +69,7 @@ pub enum CtxResult {
 #[async_trait]
 pub trait DialCtxActions {
     async fn new_controller(&self, user_id: u64) -> Result<(DialogueController, Vec<CtxResult>)>;
+    fn get_controller(&self, user_id: &u64) -> Option<&DialogueController>;
     fn take_controller(&mut self, user_id: &u64) -> Option<DialogueController>;
     fn put_controller(&mut self, user_id: u64, controller: DialogueController);
     fn dialogues_list(&self) -> Vec<(&u64, &DialogueController)>;
@@ -92,6 +93,10 @@ impl DialogueController {
 
     pub fn get_last_interaction_time(&self) -> &SystemTime {
         &self.last_usage_time
+    }
+
+    pub fn file_expected(&self) -> bool {
+        self.context.file_expected()
     }
 
     pub async fn handle(
