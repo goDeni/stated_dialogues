@@ -16,7 +16,7 @@ pub async fn dialog_expect_file<T: DialCtxActions>(user_id: &u64, context: &RwLo
         .read()
         .await
         .get_controller(user_id)
-        .map_or(false, |controller| controller.file_expected())
+        .is_some_and(|controller| controller.file_expected())
 }
 
 #[instrument(level = Level::DEBUG, skip(context, bot, interaction))]
